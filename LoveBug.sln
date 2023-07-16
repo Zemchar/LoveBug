@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugNest", "BugNest\BugNest.csproj", "{9B95A647-F450-4261-AF53-0FEDA674FE7B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoveBug", "BugCore\LoveBug.csproj", "{1BD1B366-ADAF-4E7A-B71B-C03DB24EBCB6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BD1B366-ADAF-4E7A-B71B-C03DB24EBCB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BD1B366-ADAF-4E7A-B71B-C03DB24EBCB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BD1B366-ADAF-4E7A-B71B-C03DB24EBCB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BD1B366-ADAF-4E7A-B71B-C03DB24EBCB6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
