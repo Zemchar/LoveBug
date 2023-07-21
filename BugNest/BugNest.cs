@@ -188,10 +188,14 @@ namespace BugNest
         {
             string message = Encoding.UTF8.GetString(buffer, (int)offset, (int)size);
             Console.WriteLine("Incoming: " + message);
-
+            WsServer server = ((WsServer)Server);
             // Multicast message to all connected sessions
-            ((WsServer)Server).MulticastText(message);
-
+            if (server.ConnectedSessions > 1)
+            {
+                server.MulticastText(message);
+            }else{
+                server.MulticastText("{\"Event\": \"Courtesy\"}");
+            }
             // If the buffer starts with '!' the disconnect the current session
             if (message == "!")
                 Close(1000);

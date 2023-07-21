@@ -36,7 +36,6 @@ class Window(QMainWindow, Ui_LoveBug):
         super().__init__(parent)
         self.setupUi(self)
         self.WindowNetwork("GET", s["URL"], "newLoad", s)
-        self.connectHooks()
         if s["UserCode"] == "":
             print("Generating Code")
             self.SaveSettings(userCode=random.randint(900_000, 1_000_000))
@@ -45,8 +44,39 @@ class Window(QMainWindow, Ui_LoveBug):
                 setting.setProperty("text", s[setting.objectName().removeprefix("t_")])
             elif setting.__class__ == QComboBox:
                 setting.setProperty("currentText", s[setting.objectName().removeprefix("cb_")])
+        self.connectHooks()
         self.populateGames()
-        threading.Thread(self.WebSocket()).start()
+        threading.Thread(target=self.WS_Receiver, daemon=True).start()
+
+    def WS_Receiver(self):
+        print(threading.current_thread().name)
+        try:
+            if not self.ws:
+                resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
+                self.ws = websocket.WebSocket()
+                self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
+            asyncio.run(self.WSR_Loop())
+        except Exception as e:
+            print(e)
+            print(e.__traceback__.tb_lineno)
+            self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
+            self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
+
+
+    async def WSR_Loop(self):
+        while True:
+            if (self.ws.recv()):
+                match json.loads(self.ws.recv())["Event"]:
+                    case "MOOD_UPDATE":
+                        self.Mood.setText(json.loads(self.ws.recv())["Mood"])
+                    case "CONNECTION_SUCCESS":
+                        print("[WS] Connection Success")
+                        pass;
+                    case "Courtesy":  # So it doesnt hang
+                        pass;
+
+
+
 
     def connectHooks(self):
 
@@ -54,7 +84,19 @@ class Window(QMainWindow, Ui_LoveBug):
         self.b_saveSettings.clicked.connect(self.SaveSettings)
         self.cb_SelectGame.currentIndexChanged.connect(self.ChangeGameImage)
         self.b_Randomize.clicked.connect(self.RandomizeGames)
+        self.b_love.clicked.connect(self.WSB_SendLove) # i hate this this is dumb
+        self.b_kiss.clicked.connect(self.WSB_SendKiss)
+        self.b_think.clicked.connect(self.WSB_SendThink)
+        self.b_SubmitButton.clicked.connect(self.WSB_SendMood)
 
+    def WSB_SendLove(self):
+        self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_LOVE"})
+    def WSB_SendKiss(self):
+        self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_KISS"})
+    def WSB_SendThink(self):
+        self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_THINK"})
+    def WSB_SendMood(self):
+        self.SendToWebSocket({"Event": "MOOD_UPDATE", "Mood": self.t_MoodBox.text(), "Code": s["UserCode"]})
     def RandomizeGames(self):
         while True:  # No repeats
             rand = random.choice(list(comboGames.keys()))
@@ -195,23 +237,17 @@ class Window(QMainWindow, Ui_LoveBug):
             self.cb_SelectGame.addItem(game["name"])
             comboGames[game["name"]] = game["appid"]
 
-    def WebSocket(self, data=None):
-        try:
-            if not self.ws:
-                resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
-                self.ws = websocket.WebSocket()
-                self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
-                self.ws.send("INITIALIZE")
-                print('[WS RESPONSE] ' + self.ws.recv())
-            if(data):
-                self.ws.send(data)
-                while True:
-                    if self.ws.recv() != "":
-                      print("[WS RESPONSE]" + self.ws.recv())
-        except Exception as e:
-            print(f"Failed to connect to websocket server\n{e.with_traceback(e.__traceback__)} ({e.__traceback__.tb_lineno})")
+    def SendToWebSocket(self, data=None):
 
-            return
+                self.ws.send(data.__str__())
+                match (data["Event"]):
+                    case "SEND_LOVE":
+                        self.textBrowser.setText(f"{s['userName']} is loving {self.Name.text()}")
+                    case "SEND_KISS":
+                        self.textBrowser.setText(f"{s['userName']} kissed {self.Name.text()}")
+                    case "SEND_THINK":
+                        self.textBrowser.setText(f"{s['userName']} is thinking about {self.Name.text()}")
+
 
 
 def url_to_image(url):
