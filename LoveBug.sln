@@ -2,10 +2,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugNest", "BugNest\BugNest.csproj", "{9B95A647-F450-4261-AF53-0FEDA674FE7B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugCore", "BugCore\BugCore.csproj", "{3B835B5A-0243-4E7D-A370-5840E72E1083}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BugCore", "BugCore\BugCore.csproj", "{F982BA6C-8BD3-4C46-BABC-AC6914AD8D43}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -16,13 +12,5 @@ Global
 		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9B95A647-F450-4261-AF53-0FEDA674FE7B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3B835B5A-0243-4E7D-A370-5840E72E1083}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3B835B5A-0243-4E7D-A370-5840E72E1083}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3B835B5A-0243-4E7D-A370-5840E72E1083}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3B835B5A-0243-4E7D-A370-5840E72E1083}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F982BA6C-8BD3-4C46-BABC-AC6914AD8D43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F982BA6C-8BD3-4C46-BABC-AC6914AD8D43}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F982BA6C-8BD3-4C46-BABC-AC6914AD8D43}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F982BA6C-8BD3-4C46-BABC-AC6914AD8D43}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

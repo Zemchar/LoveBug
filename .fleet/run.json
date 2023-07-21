@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "type": "dotnet",
+            "name": "Nest",
+            "projectPath": "BugNest.csproj",
+            "workingDir": "BugNest/",
+            "args": [],
+        },
+        
+    ]
+}
