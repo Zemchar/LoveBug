@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import datetime
 import random
 import sys
 import aiohttp
+import async_timeout
 import requests
 from PyQt6.QtGui import QImage, QPixmap
 from aiohttp import client_exceptions, client
@@ -10,7 +12,9 @@ from PyQt6.QtCore import QCoreApplication
 import numpy as np
 import urllib.request
 import cv2
+import websocket
 import json
+import threading
 from PyQt6.QtWidgets import (
 
     QApplication, QDialog, QMainWindow, QMessageBox, QComboBox, QPushButton, QLineEdit
@@ -24,11 +28,11 @@ from main_window_ui import Ui_LoveBug
 
 comboGames = {}
 
-
 class Window(QMainWindow, Ui_LoveBug):
 
-    def __init__(self, parent=None):
 
+    def __init__(self, parent=None):
+        self.ws = None
         super().__init__(parent)
         self.setupUi(self)
         self.WindowNetwork("GET", s["URL"], "newLoad", s)
@@ -42,6 +46,7 @@ class Window(QMainWindow, Ui_LoveBug):
             elif setting.__class__ == QComboBox:
                 setting.setProperty("currentText", s[setting.objectName().removeprefix("cb_")])
         self.populateGames()
+        threading.Thread(self.WebSocket()).start()
 
     def connectHooks(self):
 
@@ -62,9 +67,8 @@ class Window(QMainWindow, Ui_LoveBug):
 
     def ChangeGameImage(self):
         current = self.cb_SelectGame.currentText()
-        if(comboGames[current] == "-1"):
-            print("Getting Image")
-            self.WindowNetwork("GET", s["URL"], "resource", {"ResourceType" : "customGame"}) ##HANDED OFF
+        if (comboGames[current] == "-1"):
+            self.WindowNetwork("GET", s["URL"], "resource", {"ResourceType": "customGame"})  ##HANDED OFF
         else:
             data = requests.get(f"https://store.steampowered.com/api/appdetails/?appids={comboGames[current]}").json()
             self.game_img.setPixmap(url_to_image(data[f'{comboGames[current]}']["data"]["header_image"]))
@@ -100,7 +104,8 @@ class Window(QMainWindow, Ui_LoveBug):
         self.WindowNetwork("GET", data["URL"], "newLoad", data)
 
     def WindowNetwork(self, method, url, endpoint, data):
-        # try:
+        print(f"Sending {method} request to {url}{endpoint}")
+        try:
             resp = asyncio.run(networking(method, url, endpoint, data))
             resp = json.loads(resp)
             if (resp['status'] == "success"):
@@ -113,23 +118,19 @@ class Window(QMainWindow, Ui_LoveBug):
                     self.game_img.setPixmap(QPixmap(QImage("cgame.jpg")))
                     return
                 resp["data"] = json.loads(resp["data"])
-
-
                 if (resp["responseType"] == "partnerInfo"):
                     d1 = {}
                     d1["PartnerName"] = resp["data"]["Name"]
                     s["PartnerSteamID"] = resp["data"]["SteamID"]
                     self.Name.setText(resp["data"]["Name"])
                     self.Mood.setText(resp["data"]["Mood"])
-                    if(resp["data"]["AdditionalGames"]):
+                    if (resp["data"]["AdditionalGames"]):
                         d1["AdditionalPartnerGames"] = resp["data"]["AdditionalGames"]
                         r = resp["data"]["AdditionalGames"].split(",")
-                        print(r)
                         for game in r:
-                            print(game)
                             comboGames[game] = "-1"
                             self.cb_SelectGame.addItem(game)
-                    if(resp["data"]["pfp"]):
+                    if (resp["data"]["pfp"]):
                         pfp = base64.b64decode(resp["data"]["pfp"])
                         img_file = open('pfp.jpg', 'wb')
                         img_file.write(pfp)
@@ -138,37 +139,45 @@ class Window(QMainWindow, Ui_LoveBug):
 
                     with open("settings.json", "r") as j:
                         data = json.load(j)
-                        data |= d1 # merge dicts operator
+                        data |= d1  # merge dicts operator
                         j.close()
                     with open("settings.json", 'w+') as j:
                         json.dump(data, j, indent=4)
                         j.close()
-        #     if (resp['status'] == "failure"):
-        #         raise Exception(resp["data"])
-        # except Exception as e:
-        #         print(e)
-        #         self.label_5.setText(f"Remote Server URL\n{e}")
-        #         self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
-        #         return
-                self.label_5.setText(f"Remote Server URL")
-                self.label_5.setStyleSheet("color: rgb(0, 255, 0);")
+                if(resp["responseType"] == "WSInfo"):
+                    return resp["data"]
+            if (resp['status'] == "failure"):
+                raise Exception(resp["data"])
+        except Exception as e:
+            print(e)
+            print(e.__traceback__.tb_lineno)
+            self.label_5.setText(f"Remote Server URL\n{e}")
+            self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
+            return
+        self.label_5.setText(f"Remote Server URL")
+        self.label_5.setStyleSheet("color: rgb(0, 255, 0);")
 
     def populateGames(self):
-        steamApiKey = s["APIKey"]
-        slink1 = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steamApiKey}&steamid={s['SteamID']}&include_appinfo=1&format=json&include_played_free_games=1"
-        r = requests.get(slink1)
-        data = r.json()
-        if (s["PartnerSteamID"] != ""):
-            slink2 = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steamApiKey}&steamid={s['PartnerSteamID']}&include_appinfo=1&format=json&include_played_free_games=1"
-            r = requests.get(slink2)
-            data2 = r.json()
-            print(data2)
-            print(s["PartnerSteamID"])
-            # use dictionary comprehension to merge the two dictionaries
-
-        # Extract game app IDs from both dictionaries and convert them into sets
-        app_ids1 = {game["appid"] for game in data["response"]["games"]}
-        app_ids2 = {game["appid"] for game in data2["response"]["games"]}
+        try:
+            steamApiKey = s["APIKey"]
+            slink1 = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steamApiKey}&steamid={s['SteamID']}&include_appinfo=1&format=json&include_played_free_games=1"
+            r = requests.get(slink1)
+            data = r.json()
+            data2 = {}
+            if (s["PartnerSteamID"] != ""):
+                slink2 = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steamApiKey}&steamid={s['PartnerSteamID']}&include_appinfo=1&format=json&include_played_free_games=1"
+                r = requests.get(slink2)
+                data2 = r.json()
+            if(data["response"] == {} or data["response"] == None or data2["response"] == {} or data2["response"] == None):
+                raise "[ERROR] Steam did not respond (rate limited?)"
+                # use dictionary comprehension to merge the two dictionaries
+            # Extract game app IDs from both dictionaries and convert them into sets
+            app_ids1 = {game["appid"] for game in data["response"]["games"]}
+            app_ids2 = {game["appid"] for game in data2["response"]["games"]}
+        except Exception as e:
+            print(e)
+            app_ids1 = {game["appid"] for game in data["response"]["games"]}
+            app_ids2 = set()
 
         # Find the common app IDs present in both dictionaries
         common_app_ids = app_ids1.intersection(app_ids2)
@@ -176,7 +185,8 @@ class Window(QMainWindow, Ui_LoveBug):
         data = {
             "response": {
                 "game_count": len(common_app_ids),
-                "games": [game for game in data["response"]["games"] if game["appid"] in common_app_ids] # only keep first persons responses so dupes dont show up
+                "games": [game for game in data["response"]["games"] if game["appid"] in common_app_ids]
+                # only keep first persons responses so dupes dont show up
             }
         }
 
@@ -185,6 +195,23 @@ class Window(QMainWindow, Ui_LoveBug):
             self.cb_SelectGame.addItem(game["name"])
             comboGames[game["name"]] = game["appid"]
 
+    def WebSocket(self, data=None):
+        try:
+            if not self.ws:
+                resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
+                self.ws = websocket.WebSocket()
+                self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
+                self.ws.send("INITIALIZE")
+                print('[WS RESPONSE] ' + self.ws.recv())
+            if(data):
+                self.ws.send(data)
+                while True:
+                    if self.ws.recv() != "":
+                      print("[WS RESPONSE]" + self.ws.recv())
+        except Exception as e:
+            print(f"Failed to connect to websocket server\n{e.with_traceback(e.__traceback__)} ({e.__traceback__.tb_lineno})")
+
+            return
 
 
 def url_to_image(url):
@@ -196,17 +223,18 @@ def url_to_image(url):
 
 
 async def networking(method, url, endpoint, data):
+    if endpoint.startswith("/"):
+        endpoint = endpoint.removeprefix("/")
+        print("Invalid Endpoint Format. Auto-Fixed")
     async with aiohttp.ClientSession(url) as session:
         if method == "GET":
             async with session.get(f"/{endpoint}", params=data) as resp:
                 return await resp.text()
 
-
-with open("settings.json", "r") as r:
-    s = json.load(r)
-    r.close()
-
 if __name__ == "__main__":
+    with open("settings.json", "r") as r:
+        s = json.load(r)
+        r.close()
     app = QApplication(sys.argv)
     win = Window()
     win.show()

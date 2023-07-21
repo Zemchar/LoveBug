@@ -1,35 +1,33 @@
-using System;
-using System.Buffers.Text;
-using System.Data.SqlClient;
-using System.IO;
 using System.Text;
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Numerics;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Web;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using NetCoreServer;
 
 namespace BugNest
 {
     class BugNest
     {
         public static HttpListener listener;
-        public static string url = "http://localhost:8080/";
-        public static int pageViews = 0;
-        public static int requestCount = 0;
+        static JObject config;
         
-        public static PartnerProfile LoadJson(int code)
+        public static PartnerProfile PartnerLoadJson(int code)
         {
             string json = File.ReadAllText($"partners/{code}.json");
             PartnerProfile profile = JsonConvert.DeserializeObject<PartnerProfile>(json);
             return profile;
         }
+
         public static async Task HandleIncomingConnections()
         {
+            Console.WriteLine("Handling Connections");
             bool runServer = true;
-
             // While a user hasn't visited the `shutdown` url, keep on handling requests
             while (runServer)
             {
@@ -40,8 +38,8 @@ namespace BugNest
                 HttpListenerRequest req = ctx.Request;
                 HttpListenerResponse resp = ctx.Response;
 
-                Uri uri_params = req.Url;
                 JsonObject content = new JsonObject();
+                Console.WriteLine($"Request to Webserver\n{req.Url}");
 
                 //convert this to an endpoint 
                 switch (req.HttpMethod)
@@ -51,7 +49,7 @@ namespace BugNest
                         {
                             Console.WriteLine($"New Load Requested\n{HttpUtility.ParseQueryString(req.Url.Query).Get("PartnerCode")}");
                             try{
-                                var json = LoadJson(Int32.Parse(HttpUtility.ParseQueryString(req.Url.Query).Get("PartnerCode")));
+                                var json = PartnerLoadJson(Int32.Parse(HttpUtility.ParseQueryString(req.Url.Query).Get("PartnerCode")));
                                 try
                                 {
                                     byte[] img = System.IO.File.ReadAllBytes(json.profile);
@@ -91,15 +89,21 @@ namespace BugNest
                                     content.Add("data", e.Message);
                                 }
                             }
-                            
+                        }
+                        if (req.Url.AbsolutePath == "/reqWS")
+                        {
+                            content.Add("status", "success");
+                                content.Add("responseType", "WSInfo");
+                                Dictionary<string, string> d = new Dictionary<string, string>();
+                                d.Add("Host", (string)config["Host"]);
+                                d.Add("Port", ((int)config["Ports"]["WebSocket"]).ToString());
+                                Console.WriteLine(d);
+                                content.Add("data", JsonConvert.SerializeObject(d));
+                                //TODO: Query databse here for missed messages
+
                         }
                         break;
                     case "POST":
-                        // If `shutdown` url requested, then shutdown the server after serving the page
-                        if (req.Url.AbsolutePath == "/shutdown")
-                        {
-                            runServer = false;
-                        }
                         break;
                 }
                 // Write the response info
@@ -118,7 +122,27 @@ namespace BugNest
 
         public static void Main(string[] args)
         {
-            // Create a Http server and start listening for incoming connections
+            config = JObject.Parse(File.ReadAllText("appsettings.json"));
+
+            Thread webServer = new Thread(CreateWebserver);
+            Thread webSocket = new Thread(CreateWebSocket);
+            webSocket.Start();
+            webServer.Start();
+
+
+        }
+        private static void CreateWebSocket()
+        {
+            var server = new SocketServer(IPAddress.Parse((string)config["Host"]), (int)config["Ports"]["WebSocket"]);
+            server.Start();
+            Console.WriteLine($"WebSocket server listening on {server.Address}...");
+        }
+        
+        
+        private static void CreateWebserver()
+        {
+            var url = $"{config["Method"]}{config["Host"]}:{config["Ports"]["StaticApp"]}/";
+          // Create a Http server and start listening for incoming connections
             listener = new HttpListener();
             listener.Prefixes.Add(url);
             listener.Start();
@@ -143,4 +167,51 @@ namespace BugNest
         public string Mood { get; set; }
         public string AdditionalGames { get; set; }
     }
+    
+    public class Nest : WsSession
+    {
+        public Nest(WsServer server) : base(server)
+        {
+        }
+
+        public override void OnWsConnected(HttpRequest request)
+        {
+            Console.WriteLine($"Chat WebSocket session with Id {Id} connected!");
+            string message = "Hello from WebSocket chat! Please send a message or '!' to disconnect the client!";
+            SendTextAsync(message);
+        }
+        public override void OnWsDisconnected()
+        {
+            Console.WriteLine($"Chat WebSocket session with Id {Id} disconnected!");
+        }
+        public override void OnWsReceived(byte[] buffer, long offset, long size)
+        {
+            string message = Encoding.UTF8.GetString(buffer, (int)offset, (int)size);
+            Console.WriteLine("Incoming: " + message);
+
+            // Multicast message to all connected sessions
+            ((WsServer)Server).MulticastText(message);
+
+            // If the buffer starts with '!' the disconnect the current session
+            if (message == "!")
+                Close(1000);
+        }
+        protected override void OnError(SocketError error)
+        {
+            Console.WriteLine($"Chat WebSocket session caught an error with code {error}");
+        }
+    }
+    
+    class SocketServer : WsServer
+    {
+        public SocketServer(IPAddress address, int port) : base(address, port) {}
+
+        protected override TcpSession CreateSession() { return new Nest(this); }
+
+        protected override void OnError(SocketError error)
+        {
+            Console.WriteLine($"Chat WebSocket server caught an error with code {error}");
+        }
+    }
+
 }
