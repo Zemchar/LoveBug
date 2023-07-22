@@ -271,13 +271,13 @@ namespace BugNest
                             d.Add("EventType", z.GetString("EventType"));
                             d.Add("Data", z.GetString("Data"));
                             d.Add("Epoch", z.GetInt64("Epoch").ToString());
-                            if (response.ContainsKey(z.GetString("EventType")))
+                            if (response.ContainsKey("MsgUpdate"))
                             {
                                 response["MsgUpdate"].Add(d);
                             }
                             else
                             {
-                                response.Add(z.GetString("EventType"), new List<Dictionary<string, string>>(){d});
+                                response.Add("MsgUpdate", new List<Dictionary<string, string>>(){d});
                             }
                         }
                         catch (Exception e)
@@ -287,7 +287,10 @@ namespace BugNest
                     }
                 }
             }
-            Console.WriteLine(response.ToString());
+            else
+            {
+                await BugNest.QueryDB("INSERT INTO Interactions (Code, EventType, Data, Epoch) VALUES (@Code, @EventType, @Data, @Epoch)", new Dictionary<string, object>(){{"Code", data["Code"]}, {"EventType", data["EventType"]}, {"Data", data["Data"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Execute);
+            }
             server.MulticastText(JsonConvert.SerializeObject(response));
         }
         protected override void OnError(SocketError error)
