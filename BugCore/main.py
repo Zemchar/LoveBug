@@ -1,40 +1,32 @@
 import asyncio
 import base64
-import datetime
+import json
 import random
 import sys
-import time
+import threading
+import urllib.request
 
 import aiohttp
-import async_timeout
-import requests
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.uic.properties import QtWidgets
-from aiohttp import client_exceptions, client
-from PyQt6.QtCore import QCoreApplication, QTimer, QObject, pyqtSignal, QEvent
-import numpy as np
-import urllib.request
 import cv2
+import numpy as np
+import requests
 import websocket
-import json
-import threading
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
 
-    QApplication, QDialog, QMainWindow, QMessageBox, QComboBox, QPushButton, QLineEdit, QFileDialog
+    QApplication, QMainWindow, QComboBox, QLineEdit, QFileDialog
 
 )
-
-from PyQt6.uic import loadUi
-from steam.webapi import WebAPI
 
 from main_window_ui import Ui_LoveBug
 
 comboGames = {}
 
 
-
 class Window(QMainWindow, Ui_LoveBug):
     update_text_signal = pyqtSignal(str)
+
     def __init__(self, parent=None):
         self.ws = None
         super().__init__(parent)
@@ -91,7 +83,7 @@ class Window(QMainWindow, Ui_LoveBug):
                         if (resp.keys().__contains__("MsgUpdate") and len(resp["MsgUpdate"]) > 0):
                             print("[WS] Received Message Update")
                             for msg in resp["MsgUpdate"]:
-                                self.update_text_signal.emit(f"{msg['Data']}") #this is some bullshit.
+                                self.update_text_signal.emit(f"{msg['Data']}")  # this is some bullshit.
             except Exception as e:
                 print(f"[WS] Connection Closed, Retrying in 10 seconds\n==> {e} {e.__traceback__.tb_lineno}")
                 self.ws = None
@@ -105,10 +97,11 @@ class Window(QMainWindow, Ui_LoveBug):
         self.b_saveSettings.clicked.connect(self.SaveSettings)
         self.cb_SelectGame.currentIndexChanged.connect(self.ChangeGameImage)
         self.b_Randomize.clicked.connect(self.RandomizeGames)
-        self.b_love.clicked.connect(self.WSB_SendLove)  # i hate this this is dumb
-        self.b_kiss.clicked.connect(self.WSB_SendKiss)
-        self.b_think.clicked.connect(self.WSB_SendThink)
-        self.b_SubmitButton.clicked.connect(self.WSB_SendMood)
+        self.b_love.clicked.connect(self.WS_ButtonSend)  # i hate this this is dumb
+        self.b_kiss.clicked.connect(self.WS_ButtonSend)
+        self.b_think.clicked.connect(self.WS_ButtonSend)
+        self.b_SubmitButton.clicked.connect(self.WS_ButtonSend)
+        self.b_Request.clicked.connect(self.WS_ButtonSend)
         self.b_pfpSelect.clicked.connect(self.SelectPFP)
 
     def SelectPFP(self):  # Send IMMEDIATELY
@@ -120,17 +113,31 @@ class Window(QMainWindow, Ui_LoveBug):
                                    {"Code": s["UserCode"], "Data": encoded_string.__str__()}.__str__())
                 self.pfpLabel.setPixmap(QPixmap(QImage(fname[0])))
 
-    def WSB_SendLove(self):
-        self.SendToWebSocket({"Name": s['userName'], "EventType": "SEND_LOVE"})
-
-    def WSB_SendKiss(self):
-        self.SendToWebSocket({"Name": s['userName'], "EventType": "SEND_KISS"})
-
-    def WSB_SendThink(self):
-        self.SendToWebSocket({"Name": s['userName'], "EventType": "SEND_THINK"})
-
-    def WSB_SendMood(self):
-        self.SendToWebSocket({"EventType": "MOOD_UPDATE", "Mood": self.t_MoodBox.text(), "Code": s["UserCode"]})
+    def WS_ButtonSend(self):
+        match (self.sender().objectName()):
+            case "b_love":
+                self.SendToWebSocket({"Code": s["UserCode"], "Data": f"{s['userName']} is loving {self.Name.text()}",
+                                      "EventType": "SEND_LOVE"})
+            case "b_kiss":
+                self.SendToWebSocket({"Code": s["UserCode"], "Data": f"{s['userName']} kissed {self.Name.text()}",
+                                      "EventType": "SEND_KISS"})
+            case "b_think":
+                self.SendToWebSocket(
+                    {"Code": s["UserCode"], "Data": f"{s['userName']} is thinking about {self.Name.text()}",
+                     "EventType": "SEND_THINK"})
+            case "b_SubmitButton":
+                self.SendToWebSocket(
+                    {"Code": s["UserCode"], "Data": f"{self.Name.text()} is feeling {self.Mood.text()}",
+                     "EventType": "SEND_MOOD"})
+            case "b_Request":
+                if (self.t_custom.text() != ""):
+                    self.SendToWebSocket(
+                        {"Code": s["UserCode"], "Data": f"{s['userName']} wants to play {self.t_custom.text()}",
+                         "EventType": "SEND_GAME"})
+                    return  # dont do anything else
+                self.SendToWebSocket(
+                    {"Code": s["UserCode"], "Data": f"{s['userName']} wants to play {self.cb_SelectGame.currentText()}",
+                     "EventType": "SEND_GAME"})
 
     def RandomizeGames(self):
         while True:  # No repeats
@@ -187,9 +194,9 @@ class Window(QMainWindow, Ui_LoveBug):
             resp = asyncio.run(networking(method, url, endpoint, data))
             resp = json.loads(resp)
             if (resp['status'] == "success"):
-                if (resp["responseType"] == "ImageUpload"):
+                if resp["responseType"] == 'ImageUpload':
                     return
-                if (resp["responseType"] == "R_GamePlaceholder"):
+                if resp["responseType"] == "R_GamePlaceholder":
                     i = base64.b64decode(resp["data"])
                     img_file = open('cgame.jpg', 'wb')
                     img_file.write(i)

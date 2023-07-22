@@ -255,7 +255,7 @@ namespace BugNest
         {
             string message = Encoding.UTF8.GetString(buffer, (int)offset, (int)size);
             Console.WriteLine($"[WEBSOCKET][INCOMING] {message} \n==> {Id}");
-            WsServer server = ((WsServer)Server);
+            WsServer server = ((WsServer)Server);   
             var data =JsonConvert.DeserializeObject<Dictionary<string, string>>(message);
             var response = new Dictionary<string, List<Dictionary<string, string>>>();
             if (data["EventType"] == "init")
