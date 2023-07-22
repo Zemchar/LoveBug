@@ -4,12 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="03775a2a-3eb9-4460-b4e3-685409faea0b" name="Changes" comment="Make UI">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main_window_ui.py" beforeDir="false" afterPath="$PROJECT_DIR$/main_window_ui.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../BugNest/BugNest.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../BugNest/BugNest.cs" afterDir="false" />
-    </list>
+    <list default="true" id="03775a2a-3eb9-4460-b4e3-685409faea0b" name="Changes" comment="Make UI" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -79,7 +74,7 @@
       <workItem from="1689831645961" duration="7170000" />
       <workItem from="1689839719622" duration="13000" />
       <workItem from="1689894380383" duration="9471000" />
-      <workItem from="1689974618600" duration="21493000" />
+      <workItem from="1689974618600" duration="21705000" />
     </task>
     <task id="LOCAL-00001" summary="Make UI">
       <option name="closed" value="true" />
@@ -147,6 +142,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/BugCore$main.coverage" NAME="main Coverage Results" MODIFIED="1690000704535" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/BugCore$main.coverage" NAME="main Coverage Results" MODIFIED="1690000882406" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
