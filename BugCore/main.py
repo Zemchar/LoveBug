@@ -3,6 +3,8 @@ import base64
 import datetime
 import random
 import sys
+import time
+
 import aiohttp
 import async_timeout
 import requests
@@ -17,7 +19,7 @@ import json
 import threading
 from PyQt6.QtWidgets import (
 
-    QApplication, QDialog, QMainWindow, QMessageBox, QComboBox, QPushButton, QLineEdit
+    QApplication, QDialog, QMainWindow, QMessageBox, QComboBox, QPushButton, QLineEdit, QFileDialog
 
 )
 
@@ -28,55 +30,52 @@ from main_window_ui import Ui_LoveBug
 
 comboGames = {}
 
-class Window(QMainWindow, Ui_LoveBug):
 
+class Window(QMainWindow, Ui_LoveBug):
 
     def __init__(self, parent=None):
         self.ws = None
         super().__init__(parent)
+        print("[SETUP][1/5] Loading UI")
         self.setupUi(self)
+        print("[SETUP][2/5] Loading Settings")
         self.WindowNetwork("GET", s["URL"], "newLoad", s)
+        print("[SETUP][3/5] Inserting Settings")
         if s["UserCode"] == "":
-            print("Generating Code")
             self.SaveSettings(userCode=random.randint(900_000, 1_000_000))
         for setting in self.L_settings.findChildren((QLineEdit, QComboBox)):
             if setting.__class__ == QLineEdit:
                 setting.setProperty("text", s[setting.objectName().removeprefix("t_")])
             elif setting.__class__ == QComboBox:
                 setting.setProperty("currentText", s[setting.objectName().removeprefix("cb_")])
+        print("[SETUP][4/5] Connecting Hooks")
         self.connectHooks()
+        print("[SETUP][5/5] Populating Games")
         self.populateGames()
-        threading.Thread(target=self.WS_Receiver, daemon=True).start()
-
-    def WS_Receiver(self):
-        print(threading.current_thread().name)
-        try:
-            if not self.ws:
-                resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
-                self.ws = websocket.WebSocket()
-                self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
-            asyncio.run(self.WSR_Loop())
-        except Exception as e:
-            print(e)
-            print(e.__traceback__.tb_lineno)
-            self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
-            self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
-
+        print("[SETUP] Complete")
+        threading.Thread(target=self.WSR_Loop(), daemon=True).start()
 
     async def WSR_Loop(self):
         while True:
-            if (self.ws.recv()):
-                match json.loads(self.ws.recv())["Event"]:
-                    case "MOOD_UPDATE":
-                        self.Mood.setText(json.loads(self.ws.recv())["Mood"])
-                    case "CONNECTION_SUCCESS":
-                        print("[WS] Connection Success")
-                        pass;
-                    case "Courtesy":  # So it doesnt hang
-                        pass;
-
-
-
+            try:
+                if not self.ws:
+                    resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
+                    self.ws = websocket.WebSocket()
+                    self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
+                    self.ws.send({"EventType": "init", "Code": s["PartnerCode"]}.__str__())
+                    print("[WS] Connection Established")
+                while True:
+                    if (self.ws.recv()):
+                        resp = json.loads(self.ws.recv())
+                        if (resp[0] == "MsgUpdate"):
+                            for msg in resp[0]:
+                                self.textBrowser.setText(self.textBrowser.toPlainText() + f"{msg['Name']}: {msg['Data']}")
+            except Exception as e:
+                print("[WS] Connection Closed, Retrying in 10 seconds\n==> " + e.__str__())
+                self.ws = None
+                self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
+                self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
+                time.sleep(10)
 
     def connectHooks(self):
 
@@ -84,19 +83,33 @@ class Window(QMainWindow, Ui_LoveBug):
         self.b_saveSettings.clicked.connect(self.SaveSettings)
         self.cb_SelectGame.currentIndexChanged.connect(self.ChangeGameImage)
         self.b_Randomize.clicked.connect(self.RandomizeGames)
-        self.b_love.clicked.connect(self.WSB_SendLove) # i hate this this is dumb
+        self.b_love.clicked.connect(self.WSB_SendLove)  # i hate this this is dumb
         self.b_kiss.clicked.connect(self.WSB_SendKiss)
         self.b_think.clicked.connect(self.WSB_SendThink)
         self.b_SubmitButton.clicked.connect(self.WSB_SendMood)
+        self.b_pfpSelect.clicked.connect(self.SelectPFP)
+
+    def SelectPFP(self):  # Send IMMEDIATELY
+        fname = QFileDialog.getOpenFileName(self, 'Open file', '', "Image files (*.jpg, *.png)")
+        if fname[0] != "":
+            with open(fname[0], "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read())
+                self.WindowNetwork("POST", s["URL"], "resource",
+                                   {"Code": s["UserCode"], "Data": encoded_string.__str__()}.__str__())
+                self.pfpLabel.setPixmap(QPixmap(QImage(fname[0])))
 
     def WSB_SendLove(self):
         self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_LOVE"})
+
     def WSB_SendKiss(self):
         self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_KISS"})
+
     def WSB_SendThink(self):
         self.SendToWebSocket({"Name": s['userName'], "Event": "SEND_THINK"})
+
     def WSB_SendMood(self):
         self.SendToWebSocket({"Event": "MOOD_UPDATE", "Mood": self.t_MoodBox.text(), "Code": s["UserCode"]})
+
     def RandomizeGames(self):
         while True:  # No repeats
             rand = random.choice(list(comboGames.keys()))
@@ -144,6 +157,7 @@ class Window(QMainWindow, Ui_LoveBug):
             json.dump(data, j, indent=4)
             j.close()
         self.WindowNetwork("GET", data["URL"], "newLoad", data)
+        self.SendToWebSocket({"Event": "SettingsUpdate", "Settings": data, "Code": s["UserCode"]})
 
     def WindowNetwork(self, method, url, endpoint, data):
         print(f"Sending {method} request to {url}{endpoint}")
@@ -151,8 +165,9 @@ class Window(QMainWindow, Ui_LoveBug):
             resp = asyncio.run(networking(method, url, endpoint, data))
             resp = json.loads(resp)
             if (resp['status'] == "success"):
+                if (resp["responseType"] == "ImageUpload"):
+                    return
                 if (resp["responseType"] == "R_GamePlaceholder"):
-                    print(resp["data"])
                     i = base64.b64decode(resp["data"])
                     img_file = open('cgame.jpg', 'wb')
                     img_file.write(i)
@@ -186,8 +201,9 @@ class Window(QMainWindow, Ui_LoveBug):
                     with open("settings.json", 'w+') as j:
                         json.dump(data, j, indent=4)
                         j.close()
-                if(resp["responseType"] == "WSInfo"):
+                if (resp["responseType"] == "WSInfo"):
                     return resp["data"]
+
             if (resp['status'] == "failure"):
                 raise Exception(resp["data"])
         except Exception as e:
@@ -210,7 +226,8 @@ class Window(QMainWindow, Ui_LoveBug):
                 slink2 = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={steamApiKey}&steamid={s['PartnerSteamID']}&include_appinfo=1&format=json&include_played_free_games=1"
                 r = requests.get(slink2)
                 data2 = r.json()
-            if(data["response"] == {} or data["response"] == None or data2["response"] == {} or data2["response"] == None):
+            if (data["response"] == {} or data["response"] == None or data2["response"] == {} or data2[
+                "response"] == None):
                 raise "[ERROR] Steam did not respond (rate limited?)"
                 # use dictionary comprehension to merge the two dictionaries
             # Extract game app IDs from both dictionaries and convert them into sets
@@ -238,16 +255,14 @@ class Window(QMainWindow, Ui_LoveBug):
             comboGames[game["name"]] = game["appid"]
 
     def SendToWebSocket(self, data=None):
-
-                self.ws.send(data.__str__())
-                match (data["Event"]):
-                    case "SEND_LOVE":
-                        self.textBrowser.setText(f"{s['userName']} is loving {self.Name.text()}")
-                    case "SEND_KISS":
-                        self.textBrowser.setText(f"{s['userName']} kissed {self.Name.text()}")
-                    case "SEND_THINK":
-                        self.textBrowser.setText(f"{s['userName']} is thinking about {self.Name.text()}")
-
+        self.ws.send(data.__str__())
+        match (data["Event"]):
+            case "SEND_LOVE":
+                self.textBrowser.setText(f"{s['userName']} is loving {self.Name.text()}")
+            case "SEND_KISS":
+                self.textBrowser.setText(f"{s['userName']} kissed {self.Name.text()}")
+            case "SEND_THINK":
+                self.textBrowser.setText(f"{s['userName']} is thinking about {self.Name.text()}")
 
 
 def url_to_image(url):
@@ -266,6 +281,10 @@ async def networking(method, url, endpoint, data):
         if method == "GET":
             async with session.get(f"/{endpoint}", params=data) as resp:
                 return await resp.text()
+        elif method == "POST":
+            async with session.post(f"/{endpoint}", data=data) as resp:
+                return await resp.text()
+
 
 if __name__ == "__main__":
     with open("settings.json", "r") as r:
