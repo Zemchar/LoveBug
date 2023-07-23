@@ -1,15 +1,15 @@
 {
     "URL": "http://127.0.0.1:8080/",
     "NotifBox": "On",
-    "userName": "Juniper",
-    "UserCode": "900000",
+    "userName": "EVILjuniper",
+    "UserCode": "972336",
     "PartnerCode": "900000",
     "SteamID": "76561198797375438",
     "PartnerSteamID": 76561198408215788,
     "ThemeBox": "Dinosaur",
     "funnyModeBox": "On",
     "APIKey": "3F5C87CAE998D56F611D14F1295AB304",
-    "AdditionalGames": "FNAF",
+    "AdditionalGames": "",
     "AdditionalPartnerGames": "FNAF",
     "PartnerName": "TEST"
 }

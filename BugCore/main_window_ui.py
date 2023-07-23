@@ -198,7 +198,7 @@ class Ui_LoveBug(object):
         self.scrollArea.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.scrollArea.setObjectName("scrollArea")
         self.L_settings = QtWidgets.QWidget()
-        self.L_settings.setGeometry(QtCore.QRect(0, 0, 366, 600))
+        self.L_settings.setGeometry(QtCore.QRect(0, -203, 366, 600))
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(100)
@@ -328,8 +328,8 @@ class Ui_LoveBug(object):
         self.label_5.setBuddy(self.t_URL)
 
         self.retranslateUi(LoveBug)
-        self.tabWidget.setCurrentIndex(2)
-        self.tabWidget1.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget1.setCurrentIndex(0)
         self.b_SubmitButton.clicked.connect(self.t_MoodBox.clear) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(LoveBug)
         LoveBug.setTabOrder(self.b_kiss, self.b_think)
@@ -353,7 +353,8 @@ class Ui_LoveBug(object):
         self.textBrowser.setHtml(_translate("LoveBug", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
-"</body></html>"))
+"</style></head><body style=\" font-family:\'Noto Sans\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"))
         self.game_img.setText(_translate("LoveBug", "No Game Selected"))
         self.cb_SelectGame.setPlaceholderText(_translate("LoveBug", "Select Game"))
         self.b_Randomize.setText(_translate("LoveBug", "Randomize"))

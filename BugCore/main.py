@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import datetime
 import json
 import random
 import sys
@@ -15,7 +16,7 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
 
-    QApplication, QMainWindow, QComboBox, QLineEdit, QFileDialog
+    QApplication, QMainWindow, QComboBox, QLineEdit, QFileDialog, QTextEdit
 
 )
 
@@ -29,12 +30,11 @@ class Window(QMainWindow, Ui_LoveBug):
 
     def __init__(self, parent=None):
         self.ws = None
+        self.resp = None
         super().__init__(parent)
         print("[SETUP][1/5] Loading UI")
         self.setupUi(self)
-        print("[SETUP][2/5] Loading Settings")
-        self.WindowNetwork("GET", s["URL"], "newLoad", s)
-        print("[SETUP][3/5] Inserting Settings")
+        print("[SETUP][2/5] Inserting Settings")
         if s["UserCode"] == "":
             self.SaveSettings(userCode=random.randint(900_000, 1_000_000))
         for setting in self.L_settings.findChildren((QLineEdit, QComboBox)):
@@ -42,6 +42,10 @@ class Window(QMainWindow, Ui_LoveBug):
                 setting.setProperty("text", s[setting.objectName().removeprefix("t_")])
             elif setting.__class__ == QComboBox:
                 setting.setProperty("currentText", s[setting.objectName().removeprefix("cb_")])
+            elif setting.__class__ == QTextEdit:
+                setting.setProperty("text", s[setting.objectName().removeprefix("t_")])
+        print("[SETUP][3/5] Initiate Server Connection")
+        self.WindowNetwork("GET", s["URL"], "newLoad", s)
         print("[SETUP][4/5] Connecting Hooks")
         self.connectHooks()
         print("[SETUP][5/5] Populating Games")
@@ -51,45 +55,83 @@ class Window(QMainWindow, Ui_LoveBug):
         threading.Thread(target=self.WS_Receiver).start()
 
     def update_text_browser(self, msg):
-        self.textBrowser.setPlainText(msg + "\n" + self.textBrowser.toPlainText())
+        text = ""
+        msg = json.loads(msg)
+        if msg["EventType"] == "SEND_MOOD":
+            if msg["Data"]["Sender"] != s["userName"]:
+                self.Mood.setText(json.loads(msg)["Data"]["Mood"])
+                text += f"{msg['Data']['Sender']} Updated their mood to {msg['Data']['Mood']}"
+            else :
+                text += f"You Updated your mood to {msg['Data']['Mood']}"
+        elif msg["EventType"] == "SEND_GAME":
+            if msg["Data"]["Sender"] != s["userName"]:
+                text += f"{msg['Data']['Sender']} wants to play {msg['Data']['Game']}"
+            else:
+                text += f"You requested to play {msg['Data']['Game']}"
+            pass
+        elif msg["EventType"] == "SEND_LOVE":
+            if(msg["Data"]["Recipient"] == s["userName"]):
+                text += f"{msg['Data']['Sender']} loves you!"
+            else:
+                text += f"You reminded {msg['Data']['Recipient']} that you love them!"
+        elif msg["EventType"] == "SEND_KISS":
+            if(msg["Data"]["Recipient"] == s["userName"]):
+                text += f"{msg['Data']['Sender']} kissed you!"
+            else:
+                text += f"You kissed {msg['Data']['Recipient']}!"
+        elif msg["EventType"] == "SEND_THINK":
+            if(msg["Data"]["Recipient"] == s["userName"]):
+                text += f"{msg['Data']['Sender']} is thinking about you!"
+            else:
+                text += f"You are thinking about {msg['Data']['Recipient']}!"
+        msg["Epoch"] = int(msg["Epoch"])
+        self.textBrowser.setPlainText(f'[{datetime.datetime.fromtimestamp(msg["Epoch"]).strftime( "%m-%d-%Y %H:%M:%S" )}] {text}' + "\n" + self.textBrowser.toPlainText())
 
     def WS_Receiver(self):
         print("[WS] Starting Receiver on thread " + threading.current_thread().name)
         try:
             if not self.ws:
-                resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
+                self.resp = self.WindowNetwork("GET", s["URL"], "reqWS", {"UserCode": s["UserCode"]})
                 self.ws = websocket.WebSocket()
-                self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
+                self.ws.connect(f"ws://{self.resp['Host']}:{self.resp['Port']}/Nest")
                 self.ws.send({"EventType": "init", "Code": s["PartnerCode"]}.__str__())
             asyncio.run(self.WSR_Loop())
         except Exception as e:
             print("[WS] Connection Closed, Retrying in 10 seconds\n==> " + e.__str__())
+            asyncio.run(self.WSR_Loop())
             self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
             self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
-            return
 
     async def WSR_Loop(self):
         print("[WS] Starting Loop on thread " + threading.current_thread().name)
-
         while True:
             try:
                 while True:
-                    if (self.ws == None):
-                        self.ws = websocket.WebSocket()
-                        self.ws.connect(f"ws://{resp['Host']}:{resp['Port']}/Nest")
-                        self.ws.send({"EventType": "init", "Code": s["PartnerCode"]}.__str__())
                     if (self.ws.recv()):
                         resp = json.loads(self.ws.recv())
+                        print(f"[WS] Received {resp}")
                         if (resp.keys().__contains__("MsgUpdate") and len(resp["MsgUpdate"]) > 0):
-                            print("[WS] Received Message Update")
                             for msg in resp["MsgUpdate"]:
-                                self.update_text_signal.emit(f"{msg['Data']}")  # this is some bullshit.
+                                msg["Data"] = json.loads(msg["Data"])
+                                msg = msg.__str__().replace('\'', '\"')
+                                self.update_text_signal.emit(f"{msg}")  # this is some bullshit.
+                        if (resp.keys().__contains__("NewComm")):
+                            resp['NewComm'][0] = resp['NewComm'][0].__str__().replace('\'', '\"')
+                            self.update_text_signal.emit(f"{resp['NewComm'][0]}")
             except Exception as e:
-                print(f"[WS] Connection Closed, Retrying in 10 seconds\n==> {e} {e.__traceback__.tb_lineno}")
-                self.ws = None
-                self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
-                self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
-                await asyncio.sleep(10)
+                try:
+                    if self.ws is not None:
+                        self.ws.close()
+                    print(f"[WS] Connection Closed due to error, Retrying...\n==> {e} {e.__traceback__.tb_lineno}")
+                    self.ws = websocket.WebSocket()
+                    self.ws.connect(f"ws://{self.resp['Host']}:{self.resp['Port']}/Nest")
+                    self.ws.send({"EventType": "init", "Code": s["PartnerCode"]}.__str__())
+
+                except Exception as e:
+                    print(f"[WS] Failed to re-connect, Retrying in 10 seconds\n==> {e} {e.__traceback__.tb_lineno}")
+                    self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
+                    self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
+                    await asyncio.sleep(10)
 
     def connectHooks(self):
 
@@ -116,28 +158,30 @@ class Window(QMainWindow, Ui_LoveBug):
     def WS_ButtonSend(self):
         match (self.sender().objectName()):
             case "b_love":
-                self.SendToWebSocket({"Code": s["UserCode"], "Data": f"{s['userName']} is loving {self.Name.text()}",
+                self.SendToWebSocket({"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Recipient": f"{self.Name.text()}"},
                                       "EventType": "SEND_LOVE"})
             case "b_kiss":
-                self.SendToWebSocket({"Code": s["UserCode"], "Data": f"{s['userName']} kissed {self.Name.text()}",
+                self.SendToWebSocket({"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Recipient": f"{self.Name.text()}"},
                                       "EventType": "SEND_KISS"})
             case "b_think":
                 self.SendToWebSocket(
-                    {"Code": s["UserCode"], "Data": f"{s['userName']} is thinking about {self.Name.text()}",
+                    {"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Recipient": f"{self.Name.text()}"},
                      "EventType": "SEND_THINK"})
             case "b_SubmitButton":
                 self.SendToWebSocket(
-                    {"Code": s["UserCode"], "Data": f"{self.Name.text()} is feeling {self.Mood.text()}",
+                    {"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Mood": f"{self.t_custom.text()}"},
                      "EventType": "SEND_MOOD"})
             case "b_Request":
-                if (self.t_custom.text() != ""):
+                if (self.t_custom.toPlainText() != ""):
                     self.SendToWebSocket(
-                        {"Code": s["UserCode"], "Data": f"{s['userName']} wants to play {self.t_custom.text()}",
+                        {"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Game": f"{self.t_custom.text()}"},
                          "EventType": "SEND_GAME"})
                     return  # dont do anything else
                 self.SendToWebSocket(
-                    {"Code": s["UserCode"], "Data": f"{s['userName']} wants to play {self.cb_SelectGame.currentText()}",
+                    {"Code": s["UserCode"], "Data": {"Sender": f"{s['userName']}", "Game": f"{self.cb_SelectGame.currentText()}"},
                      "EventType": "SEND_GAME"})
+
+
 
     def RandomizeGames(self):
         while True:  # No repeats
@@ -163,9 +207,9 @@ class Window(QMainWindow, Ui_LoveBug):
             if setting.__class__ == QLineEdit:
                 if (setting.objectName().removeprefix("t_") == "AdditionalGames"):
                     if (setting.text() != ""):
-                        settings[setting.objectName().removeprefix("t_")] = setting.text()
+                        settings["AdditionalGames"] = setting.text()
                     else:
-                        settings[setting.objectName().removeprefix("t_")] = ""
+                        settings["AdditionalGames"] = ""
                     continue
                 settings[setting.objectName().removeprefix("t_")] = setting.text()
                 if (setting.objectName().removeprefix("t_") == "UserCode" and userCode):
@@ -186,8 +230,17 @@ class Window(QMainWindow, Ui_LoveBug):
             json.dump(data, j, indent=4)
             j.close()
         self.WindowNetwork("GET", data["URL"], "newLoad", data)
-        self.SendToWebSocket({"Event": "SettingsUpdate", "Settings": data, "Code": s["UserCode"]})
+        self.SendToWebSocket({"EventType": "SettingsUpdate", "Settings": data, "Code": s["UserCode"]})
 
+    def reformat_data(json_data):
+        try:
+            data = json.loads(json_data)
+            if "Data" in data and isinstance(data["Data"], str):
+                data["Data"] = json.loads(data["Data"])
+            return json.dumps(data)
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON:", e)
+            return None
     def WindowNetwork(self, method, url, endpoint, data):
         print(f"Sending {method} request to {url}{endpoint}")
         try:
@@ -204,7 +257,7 @@ class Window(QMainWindow, Ui_LoveBug):
                     self.game_img.setPixmap(QPixmap(QImage("cgame.jpg")))
                     return
                 resp["data"] = json.loads(resp["data"])
-                if (resp["responseType"] == "partnerInfo"):
+                if (resp["responseType"] == "PartnerProfile"):
                     d1 = {}
                     d1["PartnerName"] = resp["data"]["Name"]
                     s["PartnerSteamID"] = resp["data"]["SteamID"]
@@ -232,7 +285,6 @@ class Window(QMainWindow, Ui_LoveBug):
                         j.close()
                 if (resp["responseType"] == "WSInfo"):
                     return resp["data"]
-
             if (resp['status'] == "failure"):
                 raise Exception(resp["data"])
         except Exception as e:
@@ -284,14 +336,13 @@ class Window(QMainWindow, Ui_LoveBug):
             comboGames[game["name"]] = game["appid"]
 
     def SendToWebSocket(self, data=None):
-        self.ws.send(data.__str__())
-        match (data["EventType"]):
-            case "SEND_LOVE":
-                self.textBrowser.setText(f"{s['userName']} is loving {self.Name.text()}")
-            case "SEND_KISS":
-                self.textBrowser.setText(f"{s['userName']} kissed {self.Name.text()}")
-            case "SEND_THINK":
-                self.textBrowser.setText(f"{s['userName']} is thinking about {self.Name.text()}")
+        try:
+            self.ws.send(data.__str__())
+        except Exception as e:
+            print(f"[WS] Connection Closed\n==> {e} {e.__traceback__.tb_lineno}")
+            self.label_5.setText(self.label_5.text() + "\nWebSocket Connection Failed")
+            self.label_5.setStyleSheet("color: rgb(255, 0, 0); font-weight: bold; font-size: 8px;")
+            return
 
 
 def url_to_image(url):
