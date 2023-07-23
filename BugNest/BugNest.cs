@@ -50,20 +50,60 @@ namespace BugNest
                     case "GET":
                         if (req.Url.AbsolutePath == "/newLoad")
                         {
-                            try{
-                                var json = PartnerLoadJson(Int32.Parse(HttpUtility.ParseQueryString(req.Url.Query).Get("PartnerCode")));
-                                try
+                            string sql = @"
+                            INSERT INTO UserProfiles (Code, Name, SteamID, AdditionalGames)
+                            VALUES (@Code, @Name, @Steam, @AdditionalGames)
+                            ON DUPLICATE KEY UPDATE
+                                Name = VALUES(Name),
+                                SteamID = VALUES(SteamID),
+                                AdditionalGames = VALUES(AdditionalGames);
+                        ";
+
+                        // Assuming you have the parameters ready, create the parameters dictionary
+                        var p = new Dictionary<string, object>
+                        {
+                            { "@Code", HttpUtility.ParseQueryString(req.Url.Query).Get("UserCode") },
+                            { "@Name", HttpUtility.ParseQueryString(req.Url.Query).Get("userName") },
+                            { "@Steam", HttpUtility.ParseQueryString(req.Url.Query).Get("SteamID")},
+                            { "@AdditionalGames", HttpUtility.ParseQueryString(req.Url.Query).Get("AdditionalGames") }
+                        };
+
+
+                            await QueryDB(sql, p, SqlMethods.Execute);
+                            try
+                            {
+                                var partnerCode = HttpUtility.ParseQueryString(req.Url.Query).Get("PartnerCode");
+                                sql = "SELECT * FROM UserProfiles WHERE Code = @PartnerCode;";
+                                var parameters = new Dictionary<string, object>
                                 {
-                                    byte[] img = System.IO.File.ReadAllBytes(json.profile);
-                                    json.pfp = img;
-                                }
-                                catch (DirectoryNotFoundException e)
+                                    { "@PartnerCode", partnerCode }
+                                };
+                                var res = await QueryDB(sql, parameters, SqlMethods.Retrieve);
+                                if (res.HasRows)
                                 {
-                                    Console.WriteLine($"[WEBSERVER][ERROR] Looked for {json.profile} but it was not found");
+                                    while (res.Read())
+                                    {
+                                        content.Add("status", "success");
+                                        content.Add("responseType", "PartnerProfile");
+                                        content.Add("data", JsonConvert.SerializeObject(new PartnerProfile()
+                                        {
+                                            Code = res.GetInt32("Code"),
+                                            SteamID = res.GetInt64("SteamID"),
+                                            Name = res.GetString("Name"),
+                                            Mood = res.GetString("Mood"),
+                                            AdditionalGames = res.GetString("AdditionalGames"),
+                                            pfp = res["Image"] as byte[]
+                                        }));
+                                    }
+
                                 }
-                                content.Add("status", "success");
-                                content.Add("responseType", "partnerInfo");
-                                content.Add("data", JsonConvert.SerializeObject(json));
+                                else
+                                {
+                                    content.Add("status", "failure");
+                                    content.Add("data", "No profile found");
+                                    resp.StatusCode = 404;
+                                }
+
                             }
                             catch(Exception e){
                                 content.Add("status", "failure");
@@ -251,23 +291,32 @@ namespace BugNest
         {
             Console.WriteLine($"[WEBSOCKET][CONNECTION_LOST] Client Disconnect\n==> {Id}");
         }
+        
+        public string CleanJsonData(string jsonData)
+        {
+            // Use Newtonsoft.Json to deserialize and then serialize the JSON data
+            // This process will remove newlines and extra whitespace
+            dynamic dataObject = JsonConvert.DeserializeObject(jsonData);
+            return JsonConvert.SerializeObject(dataObject, Formatting.None);
+        }
+
         public override async void OnWsReceived(byte[] buffer, long offset, long size)
         {
             string message = Encoding.UTF8.GetString(buffer, (int)offset, (int)size);
             Console.WriteLine($"[WEBSOCKET][INCOMING] {message} \n==> {Id}");
             WsServer server = ((WsServer)Server);   
-            var data =JsonConvert.DeserializeObject<Dictionary<string, string>>(message);
-            var response = new Dictionary<string, List<Dictionary<string, string>>>();
-            if (data["EventType"] == "init")
+            var data =JsonConvert.DeserializeObject<Dictionary<string, object>>(message);
+            var response = new Dictionary<string, List<Dictionary<string, object>>>();
+            if ((string)data["EventType"] == "init")
             {
-                var z =await BugNest.QueryDB("SELECT * FROM Interactions WHERE Code = @Code AND Epoch < @Epoch ORDER BY Epoch DESC LIMIT 20", new Dictionary<string, object>(){{"Code", data["Code"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Retrieve);
+                var z =await BugNest.QueryDB("SELECT * FROM Interactions WHERE Code = @Code AND Epoch < @Epoch ORDER BY Epoch LIMIT 20", new Dictionary<string, object>(){{"Code", data["Code"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Retrieve);
                 if (z.HasRows)
                 {
                     while (z.Read())
                     {
                         try
                         {
-                            var d = new Dictionary<string, string>();
+                            var d = new Dictionary<string, object>();
                             d.Add("EventType", z.GetString("EventType"));
                             d.Add("Data", z.GetString("Data"));
                             d.Add("Epoch", z.GetInt64("Epoch").ToString());
@@ -277,7 +326,7 @@ namespace BugNest
                             }
                             else
                             {
-                                response.Add("MsgUpdate", new List<Dictionary<string, string>>(){d});
+                                response.Add("MsgUpdate", new List<Dictionary<string, object>>(){d});
                             }
                         }
                         catch (Exception e)
@@ -287,10 +336,30 @@ namespace BugNest
                     }
                 }
             }
+            else if ((string)data["EventType"] == "SettingsUpdate")
+            {
+                var set = JsonConvert.DeserializeObject<Dictionary<string, object>>(data["Settings"].ToString());
+                Console.WriteLine("Settings Update");
+                var sql = @"UPDATE UserProfiles SET SteamID = @SteamID, Name = @Name, AdditionalGames = @AdditionalGames WHERE Code = @Code";
+                var p = new Dictionary<string, object>()
+                {
+                    {"SteamID" , set["SteamID"]},
+                    {"Name", set["userName"]},
+                    {"AdditionalGames", set["AdditionalGames"]},
+                    {"Code", data["Code"]}
+                };
+                await BugNest.QueryDB(sql, p, SqlMethods.Execute);
+                response.Add("SettingsUpdate", new List<Dictionary<string, object>>(){data});
+            }
             else
             {
-                await BugNest.QueryDB("INSERT INTO Interactions (Code, EventType, Data, Epoch) VALUES (@Code, @EventType, @Data, @Epoch)", new Dictionary<string, object>(){{"Code", data["Code"]}, {"EventType", data["EventType"]}, {"Data", data["Data"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Execute);
+                Console.WriteLine(data["EventType"]);
+                var epoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                await BugNest.QueryDB("INSERT INTO Interactions (Code, EventType, Data, Epoch) VALUES (@Code, @EventType, @Data, @Epoch)", new Dictionary<string, object>(){{"Code", data["Code"]}, {"EventType", data["EventType"]}, {"Data", CleanJsonData(data["Data"].ToString())}, {"Epoch", epoch}}, SqlMethods.Execute);
+                data.Add("Epoch", epoch);
+                response.Add("NewComm", new List<Dictionary<string, object>>(){data});
             }
+            Console.WriteLine($"[WEBSOCKET][OUTGOING] {JsonConvert.SerializeObject(response)} \n==> {Id}");
             server.MulticastText(JsonConvert.SerializeObject(response));
         }
         protected override void OnError(SocketError error)
