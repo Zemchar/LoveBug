@@ -309,7 +309,7 @@ namespace BugNest
             var response = new Dictionary<string, List<Dictionary<string, object>>>();
             if ((string)data["EventType"] == "init")
             {
-                var z =await BugNest.QueryDB("SELECT * FROM Interactions WHERE Code = @Code AND Epoch < @Epoch ORDER BY Epoch LIMIT 20", new Dictionary<string, object>(){{"Code", data["Code"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Retrieve);
+                var z =await BugNest.QueryDB("SELECT * FROM Interactions WHERE Code = @Code OR @PCode AND Epoch < @Epoch ORDER BY Epoch DESC LIMIT 20", new Dictionary<string, object>(){{"Code", data["Code"]}, {"PCode", data["PCode"]}, {"Epoch", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()}}, SqlMethods.Retrieve);
                 if (z.HasRows)
                 {
                     while (z.Read())
@@ -351,9 +351,22 @@ namespace BugNest
                 await BugNest.QueryDB(sql, p, SqlMethods.Execute);
                 response.Add("SettingsUpdate", new List<Dictionary<string, object>>(){data});
             }
+            else if ((string)data["EventType"] == "SEND_MOOD")
+            {
+                var set = JsonConvert.DeserializeObject<Dictionary<string, object>>(data["Data"].ToString());
+                var epoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+                var sql = @"UPDATE UserProfiles SET Mood = @Mood WHERE Code = @Code";
+                var p = new Dictionary<string, object>()
+                {
+                    {"Mood" , set["Mood"]},
+                    {"Code", data["Code"]}
+                };
+                await BugNest.QueryDB(sql, p, SqlMethods.Execute);
+                await BugNest.QueryDB("INSERT INTO Interactions (Code, EventType, Data, Epoch) VALUES (@Code, @EventType, @Data, @Epoch)", new Dictionary<string, object>(){{"Code", data["Code"]}, {"EventType", data["EventType"]}, {"Data", CleanJsonData(data["Data"].ToString())}, {"Epoch", epoch}}, SqlMethods.Execute);
+                response.Add("NewComm", new List<Dictionary<string, object>>(){data});
+            }
             else
             {
-                Console.WriteLine(data["EventType"]);
                 var epoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
                 await BugNest.QueryDB("INSERT INTO Interactions (Code, EventType, Data, Epoch) VALUES (@Code, @EventType, @Data, @Epoch)", new Dictionary<string, object>(){{"Code", data["Code"]}, {"EventType", data["EventType"]}, {"Data", CleanJsonData(data["Data"].ToString())}, {"Epoch", epoch}}, SqlMethods.Execute);
                 data.Add("Epoch", epoch);
