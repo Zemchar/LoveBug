@@ -141,6 +141,9 @@ class Window(QMainWindow, Ui_LoveBug):
                     if self.ws is not None:
                         self.ws.close()
                     print(f"[WS] Connection Closed due to error, Retrying...\n==> {e} {e.__traceback__.tb_lineno}")
+                    self.resp = self.WindowNetwork("GET", globalSettings["URL"], "reqWS",
+                                                   {"UserCode": globalSettings["UserCode"]})
+                    self.ws = None
                     self.ws = websocket.WebSocket()
                     self.ws.connect(f"ws://{self.resp['Host']}:{self.resp['Port']}/Nest")
                     self.ws.send({"EventType": "init", "PCode": globalSettings["PartnerCode"], "Code": globalSettings["UserCode"]}.__str__())
@@ -200,6 +203,7 @@ class Window(QMainWindow, Ui_LoveBug):
                 self.SendToWebSocket(data)
                 data.update({"Epoch": int(datetime.datetime.now().timestamp())})
                 self.update_text_browser(data.__str__())
+                self.l_CurrentMood.setText(f"Your mood is currently: {self.t_MoodBox.text()}")
             case "b_Request":
                 if (self.t_custom.toPlainText() != ""):
                     data = {"Code": globalSettings["UserCode"], "Data": {"Sender": f"{globalSettings['userName']}", "Game": f"{self.t_custom.toPlainText()}"},
@@ -231,9 +235,11 @@ class Window(QMainWindow, Ui_LoveBug):
         if (comboGames[current] == "-1"):
             self.WindowNetwork("GET", globalSettings["URL"], "resource", {"ResourceType": "customGame"})  ##HANDED OFF
         else:
-            data = requests.get(f"https://store.steampowered.com/api/appdetails/?appids={comboGames[current]}").json()
-            self.game_img.setPixmap(url_to_image(data[f'{comboGames[current]}']["data"]["header_image"]))
+            asyncio.run(self.fetchImgAsync(current))
 
+    async def fetchImgAsync(self, current):
+        data =  requests.get(f"https://store.steampowered.com/api/appdetails/?appids={comboGames[current]}").json()
+        self.game_img.setPixmap(url_to_image(data[f'{comboGames[current]}']["data"]["header_image"]))
     def SaveSettings(self, userCode: ""):
         settings = {}
         for setting in self.L_settings.findChildren((QLineEdit, QComboBox, QTextEdit)):
