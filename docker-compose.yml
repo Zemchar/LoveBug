@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: toor
     volumes:
       - BugNestDB:/var/lib/mysql
-      - ./sql_dump.sql:/docker-entrypoint-initdb.d/init.sql   # Mount SQL dump file
+      - ./BugNest/SqlTemplate.sql:/docker-entrypoint-initdb.d/init.sql   # Mount SQL dump file
 
   # .NET Application Service
   BugNestServer:
