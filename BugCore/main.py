@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import datetime
 import json
@@ -13,9 +12,9 @@ from desktop_notifier import DesktopNotifier
 import numpy as np
 import requests
 import websocket
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import (
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import (
 
     QApplication, QMainWindow, QComboBox, QLineEdit, QFileDialog, QTextEdit
 

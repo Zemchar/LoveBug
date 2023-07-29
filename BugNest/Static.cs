@@ -11,7 +11,6 @@ namespace BugNest
     abstract class Static
     {
         private static HttpListener? listener;
-        public static JObject? config;
 
         public static ISharedMethods.PartnerProfile? PartnerLoadJson(int code)
         {
@@ -94,7 +93,7 @@ namespace BugNest
                                                 Mood = res.GetString("Mood"),
                                                 AdditionalGames = res.GetString("AdditionalGames"),
                                                 pfp = res["Image"] as byte[] ?? Array.Empty<byte>()
-                                            }));
+                                            })); 
                                         }
 
                                     }
@@ -143,8 +142,8 @@ namespace BugNest
                             content.Add("responseType", "WSInfo");
                             Dictionary<string, string> d = new Dictionary<string, string>
                             {
-                                { "Host", (string)config["Host"] },
-                                { "Port", ((int)config["Ports"]["WebSocket"]).ToString() }
+                                { "Host", (string)Program.config["Host"] },
+                                { "Port", ((int)Program.config["Ports"]["WebSocket"]).ToString() }
                             };
                             content.Add("data", JsonConvert.SerializeObject(d));
 
@@ -182,39 +181,16 @@ namespace BugNest
                 resp.Close();
             }
         }
-
-        public static async Task Main(string[] args)
+        
+        public static void CreateWebserver()
         {
-            config = JObject.Parse(File.ReadAllText("appsettings.json"));
-            var conn = new MySqlConnection(
-                $"Server={config["DB"]["Host"]};Database={config["DB"]["Database"]};Uid={config["DB"]["User"]};Pwd={config["DB"]["Password"]};");
-            try
+            var url = $"{Program.config["Method"]}{Program.config["Host"]}:{Program.config["Ports"]["StaticApp"]}/";
+
+            if ((string)Program.config["Host"] == "0.0.0.0") // docker container
             {
-                Console.WriteLine("[SQL] Connecting to DB");
-                await conn.OpenAsync();
-                Console.WriteLine($"[SQL] Connected to DB {conn.Database} as {config["DB"]["User"]}");
-
-                await ISharedMethods.QueryDB(
-                    "CREATE TABLE IF NOT EXISTS `UserProfiles` (Code int not null primary key, Name text null, SteamID bigint null, Mood text null, Image longtext null, AdditionalGames text null);CREATE TABLE IF NOT EXISTS `Interactions` (Code int not null, EventType text null, data text null, Epoch bigint not null, constraint Interactions_UserProfiles_code_fk foreign key (Code) references UserProfiles (Code))",
-                    null, ISharedMethods.SqlMethods.Execute);
-
+                url = $"http://+:{Program.config["Ports"]["StaticApp"]}/";
             }
-            catch (Exception e)
-            {
-                Console.WriteLine("DB ERROR");
-                Console.WriteLine(e.Message);
-            }
-
-            conn.CloseAsync();
-            Thread webServer = new Thread(CreateWebserver);
-            Thread webSocket = new Thread(Socket.Nest.CreateWebSocket);
-            webSocket.Start();
-            webServer.Start();
-        }
-
-        private static void CreateWebserver()
-        {
-            var url = $"{config["Method"]}{config["Host"]}:{config["Ports"]["StaticApp"]}/";
+            
             // Create a Http server and start listening for incoming connections
             listener = new HttpListener();
             listener.Prefixes.Add(url);

@@ -16,10 +16,10 @@ public interface ISharedMethods
     internal static async Task<MySqlDataReader> QueryDB(string sql, Dictionary<string, object?> parameters,
         SqlMethods method)
     {
-        Debug.Assert(Static.config != null, "Static.config != null");
+        Debug.Assert(Program.config != null, "Program.config != null");
         MySqlConnection conn =
             new MySqlConnection(
-                $"Server={Static.config["DB"]["Host"]};Database={Static.config["DB"]["Database"]};Uid={Static.config["DB"]["User"]};Pwd={Static.config["DB"]["Password"]};");
+                $"Server={Program.config["DB"]["Host"]};Database={Program.config["DB"]["Database"]};Uid={Program.config["DB"]["User"]};Pwd={Program.config["DB"]["Password"]};");
         if (conn.State != ConnectionState.Open)
             await conn.OpenAsync();
         await using (var cmd = new MySqlCommand())

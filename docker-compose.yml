@@ -1,0 +1,31 @@
+﻿version: '3.9'
+
+services:
+  # MySQL Database Service
+  my_sql_db:
+    image: mysql:latest
+    container_name: BugNestDB
+    environment:
+      MYSQL_ROOT_PASSWORD: toor
+    volumes:
+      - BugNestDB:/var/lib/mysql
+      - ./sql_dump.sql:/docker-entrypoint-initdb.d/init.sql   # Mount SQL dump file
+
+  # .NET Application Service
+  BugNestServer:
+    build:
+      context: .
+    image: bug_nest:1.2
+    container_name: BugNest
+    ports:
+      - "80:9128"
+      - "9129:9129"
+    depends_on:
+      - my_sql_db
+    links:
+      - my_sql_db:db
+    volumes:
+      - BugNestDB:/app/Data
+
+volumes:
+  BugNestDB:

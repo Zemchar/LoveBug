@@ -114,7 +114,9 @@ public abstract class Socket
 
         public static void CreateWebSocket()
         {
-            var server = new SocketServer(IPAddress.Parse((string)Static.config["Host"]), (int)Static.config["Ports"]["WebSocket"]);
+            Console.WriteLine((string)Program.config["Host"]);
+            Console.WriteLine((int)Program.config["Ports"]["WebSocket"]);
+            var server = new SocketServer(IPAddress.Parse((string)Program.config["Host"]), (int)Program.config["Ports"]["WebSocket"]);
             server.Start();
             Console.WriteLine($"[WEBSOCKET] WebSocket server listening on {server.Address}:{server.Port}");
         }
