@@ -9,6 +9,8 @@ This is the server component of this project.
 
 It provides both a static, webserver-like connection as well as a websocket for realtime interaction
 
+Why do it this way? It seemed kinda fun to do both
+
 You may configure the server in the "[appsettings.json](/BugNest/appsettings.json)" file 
 
 ### Configuration Options
