@@ -8,7 +8,7 @@ disabled_targets =["ios"]
 version = "3.11.3"
 
 [PyQt]
-version = "6.5.1"
+version = "5.15.9"
 
 [PyQt.android]
 disabled_features = ["PyQt_Desktop_OpenGL", "PyQt_Printer"]
@@ -39,7 +39,7 @@ installed_modules = ["QtCore", "QtGui", "QtNetwork", "QtWidgets",
 version = "2.13.2"
 
 [Qt]
-version = "6.5.1"
+version = "5.15"
 edition = "opensource"
 configure_options = ["-opengl", "desktop", "-qt-pcre"]
 skip = ["qtactiveqt", "qtconnectivity", "qtdoc", "qtgamepad", "qtlocation",
