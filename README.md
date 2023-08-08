@@ -30,3 +30,8 @@ You may configure the server in the "[appsettings.json](/BugNest/appsettings.jso
 | resource - GET  | Used to get server-configured image files such as the image for a custom game                |
 | resource - POST | Used for users to upload new profile pictures                                                |
 | reqWS           | Returns info for connecting to the websocket, such as the port                               |
+
+## BugCore
+Bug core is the main user application. Mostly everything auto-configures itself on first startup. 
+
+Partners only need to exchange BugCodes on the server they are connecting to to be connected.
