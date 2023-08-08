@@ -35,3 +35,5 @@ You may configure the server in the "[appsettings.json](/BugNest/appsettings.jso
 Bug core is the main user application. Mostly everything auto-configures itself on first startup. 
 
 Partners only need to exchange BugCodes on the server they are connecting to to be connected.
+
+Builds coming soon.
