@@ -6,7 +6,6 @@ class HTTP {
     return res;
   }
   // Specialized HTTP
-  static Future<http.Response>
 }
 
 class RTC {
