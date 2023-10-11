@@ -1,3 +1,6 @@
+/*
+MAIN FILE USED FOR INITALIZING APP. VIEWS ARE IN THE OTHER FOLDERS
+*/
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -83,17 +86,24 @@ class MainPage extends StatefulWidget {
 
   @override
   State<MainPage> createState() => _MainPageState();
+
+
 }
 
 class _MainPageState extends State<MainPage> {
+  void changeIndex(int newIndex) {
+    setState(() {
+      _index = newIndex;
+    });
+  }
   final List<Widget> _children = [
     const Home(),
     const Games(),
-    const Gallery(),
+//    const Gallery(), removing for now, just need to focus on core functionality
+  //TODO: Reimplement Gallery
     const Settings()
   ];
-  int _index =
-      0; // Make sure this is outside build(), otherwise every setState will change the value back to 0
+  int _index = 0; // Make sure this is outside build(), otherwise every setState will change the value back to 0
 
   @override
   @mustCallSuper
@@ -125,10 +135,10 @@ class _MainPageState extends State<MainPage> {
                   icon: const Icon(Icons.gamepad_outlined),
                   label: 'Games',
                   backgroundColor: Theme.of(context).colorScheme.scrim),
-              BottomNavigationBarItem(
-                  icon: const Icon(Icons.photo_album_outlined),
-                  label: 'Gallery',
-                  backgroundColor: Theme.of(context).colorScheme.scrim),
+              // BottomNavigationBarItem(
+              //     icon: const Icon(Icons.photo_album_outlined),
+              //     label: 'Gallery',
+              //     backgroundColor: Theme.of(context).colorScheme.scrim),
               BottomNavigationBarItem(
                   icon: const Icon(Icons.settings_outlined),
                   label: 'Settings',

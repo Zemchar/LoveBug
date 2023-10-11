@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart'; // Import the provider package
 import '../main.dart';
-
+import 'package:lovebug/networking.dart' as networking;
+import 'package:shared_preferences/shared_preferences.dart';
 class Settings extends StatefulWidget {
   const Settings({super.key});
   @override
@@ -11,8 +12,8 @@ class Settings extends StatefulWidget {
 
 class _SettingsState extends State<Settings> {
   String _notifBoxValue = 'On';
-  final TextEditingController _nameController = TextEditingController();
   late ThemeProvider themeProvider; // Declare a ThemeProvider variable
+  late SharedPreferences prefs;
 
   @override
   void didChangeDependencies() {
@@ -22,9 +23,14 @@ class _SettingsState extends State<Settings> {
     themeProvider = Provider.of<ThemeProvider>(context);
   }
 
+  void setPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+
+  }
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance!.addPostFrameCallback((_) => setPrefs());
     return Scaffold(
       body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -118,14 +124,15 @@ class _SettingsState extends State<Settings> {
                     SizedBox(
                         width: 250,
                         child: TextField(
+
                           autocorrect: false,
-                          controller: _nameController,
+                          controller: TextEditingController(text: prefs.getString('name')),
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             hintText: 'Your name',
                           ),
                           onSubmitted: (String value) async {
-                            print(value);
+                            prefs.setString('name', value);
                           },
                         )),
                   ],),
@@ -139,6 +146,7 @@ class _SettingsState extends State<Settings> {
                     SizedBox(
                         width: 245,
                         child: TextField(
+                          controller: TextEditingController(text: prefs.getString('partnerBugCode')),
                           autocorrect: false,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           decoration: const InputDecoration(
@@ -146,7 +154,7 @@ class _SettingsState extends State<Settings> {
                             hintText: 'Partner\'s bug code',
                           ),
                           onSubmitted: (String value) async {
-                            print(value);
+                            prefs.setString('partnerBugCode', value);
                           },
                         )),
                   ],
@@ -162,13 +170,14 @@ class _SettingsState extends State<Settings> {
                       SizedBox(
                           width: 250,
                           child: TextField(
+                            controller: TextEditingController(text: prefs.getString('steamID')),
                             autocorrect: false,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               hintText: 'Your Steam ID',
                             ),
                             onSubmitted: (String value) async {
-                              print(value);
+                              prefs.setString('steamID', value);
                             },
                           )),
                     ]),
@@ -183,13 +192,14 @@ class _SettingsState extends State<Settings> {
                       SizedBox(
                           width: 250,
                           child: TextField(
+                            controller: TextEditingController(text: prefs.getString('steamAPIKey')),
                             autocorrect: false,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               hintText: 'Your Steam API Key',
                             ),
                             onSubmitted: (String value) async {
-                              print(value);
+                              prefs.setString('steamAPIKey', value);
                             },
                           )),
                     ]),
@@ -229,6 +239,7 @@ class _SettingsState extends State<Settings> {
                       SizedBox(
                           width: 250,
                           child: TextFormField(
+                            controller: TextEditingController(text: prefs.getString('additionalGames')),
                             autocorrect: false,
                             minLines: 6,
                             maxLines: 10 ,
@@ -237,7 +248,7 @@ class _SettingsState extends State<Settings> {
                               hintText: 'Enter as many games as you want, seperated by commas',
                             ),
                             onFieldSubmitted: (String value) async {
-                              print(value);
+                              prefs.setString('additionalGames', value);
                             },
                           )),
                     ]),
@@ -252,17 +263,38 @@ class _SettingsState extends State<Settings> {
                       SizedBox(
                           width: 250,
                           child: TextField(
+                            controller: TextEditingController(text: prefs.getString('RemoteURL')),
                             autocorrect: false,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               hintText: 'Remote Server URL',
                             ),
                             onSubmitted: (String value) async {
-                              print(value);
+                              prefs.setString('RemoteURL', value);
                             },
                           )),
                     ]),
+                ButtonBar(
+                  alignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Map<String, Object> data = {};
+                        for(String key in prefs.getKeys()) {
+                          data[key] = prefs.get(key)!;
+                        }
+
+                        print(data);
+                        if(networking.RTC.channel != null) {
+                          networking.RTC.send({"EventType": "SettingsUpdate", "Settings": data, "Code": _BugCode.BugCode});
+                        }
+                      },
+                      child: const Text('Save', style: TextStyle(fontSize: 30)),
+                    ),
+                  ],
+              ),
               ])
+
       ),
     );
   }
