@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart'; // Import the provider package
@@ -15,6 +18,8 @@ class _SettingsState extends State<Settings> {
   String _notifBoxValue = 'On';
   late ThemeProvider themeProvider; // Declare a ThemeProvider variable
   var prefs;
+
+  late Image? profileImage = prefs.getString('profilePicture') != null ? Image.file(File(prefs.getString('profilePicture')!), width: 100, height: 100) : null;
 
   @override
   void initState() {
@@ -41,10 +46,12 @@ class _SettingsState extends State<Settings> {
 
   @override
   Widget build(BuildContext context) {
+
     return FutureBuilder(
         future: setupPrefs(),
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.hasData) {
+
             return Scaffold(
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -111,6 +118,8 @@ class _SettingsState extends State<Settings> {
                                 onChanged: (String? newValue) {
                                   theming.currentTheme = theming.themeMapping[newValue!]!;
                                   theming.currentThemeName = newValue;
+                                  prefs.setString('theme', newValue);
+                                  print(prefs.getString('theme'));
                                   setState(() {
                                     theming.currentTheme;
                                     theming.currentThemeName;
@@ -144,7 +153,7 @@ class _SettingsState extends State<Settings> {
                                     border: OutlineInputBorder(),
                                     hintText: 'Your name',
                                   ),
-                                  onSubmitted: (String value) async {
+                                  onChanged: (String value) async {
                                     prefs.setString('name', value);
                                   },
                                 )),
@@ -166,7 +175,7 @@ class _SettingsState extends State<Settings> {
                                     border: OutlineInputBorder(),
                                     hintText: 'Partner\'s bug code',
                                   ),
-                                  onSubmitted: (String value) async {
+                                  onChanged: (String value) async {
                                     prefs.setString('partnerBugCode', value);
                                   },
                                 )),
@@ -189,7 +198,7 @@ class _SettingsState extends State<Settings> {
                                       border: OutlineInputBorder(),
                                       hintText: 'Your Steam ID',
                                     ),
-                                    onSubmitted: (String value) async {
+                                    onChanged: (String value) async {
                                       prefs.setString('steamID', value);
                                     },
                                   )),
@@ -211,7 +220,7 @@ class _SettingsState extends State<Settings> {
                                       border: OutlineInputBorder(),
                                       hintText: 'Your Steam API Key',
                                     ),
-                                    onSubmitted: (String value) async {
+                                    onChanged: (String value) async {
                                       prefs.setString('steamAPIKey', value);
                                     },
                                   )),
@@ -224,22 +233,38 @@ class _SettingsState extends State<Settings> {
                             children: [
                               const Text('Profile Picture', style: TextStyle(fontSize: 30)),
                               const SizedBox(width: 20),
-                              SizedBox(
-                                  width: 250,
-                                  child: ButtonBar(
+                              ButtonBar(
                                     alignment: MainAxisAlignment.start,
                                     children: [
                                       TextButton(
-                                        onPressed: () {},
+                                        onPressed: () async {
+                                          FilePickerResult? result = await FilePicker.platform.pickFiles(dialogTitle: "Choose a Profile Picture", type: FileType.image);
+                                          if(result != null) {
+                                            prefs.setString('profilePicture', result.files.single.path);
+                                            profileImage = Image.file(File(result.files.single.path!), width: 100, height: 100);
+                                            networking.HTTP.post(prefs.getString('RemoteURL')! + '/resource', {'BugCode': _BugCode.BugCode, 'ProfilePicture': result.files.single.bytes}, context);
+                                          } else {
+                                            // User canceled the picker
+                                          }
+                                          setState(() {
+                                            profileImage;
+                                          });
+                                        },
                                         child: const Text('Upload'),
                                       ),
                                       TextButton(
-                                        onPressed: () {},
+                                        onPressed: () {
+                                          prefs.remove('profilePicture');
+                                          profileImage = null;
+                                          setState(() {
+                                            profileImage;
+                                          });
+                                        },
                                         child: const Text('Remove'),
                                       ),
                                     ],
-                                  )),
-
+                                  ),
+                              profileImage ?? const Icon(Icons.person, size: 100),
                             ]),
                         // Additional Games
                         const SizedBox(height: 20),
@@ -282,7 +307,7 @@ class _SettingsState extends State<Settings> {
                                       border: OutlineInputBorder(),
                                       hintText: 'Remote Server URL',
                                     ),
-                                    onSubmitted: (String value) async {
+                                    onChanged: (String value) async {
                                       prefs.setString('RemoteURL', value);
                                     },
                                   )),

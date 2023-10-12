@@ -56,10 +56,46 @@ class HTTP {
     }
   }
 
+  /*
+  Sends post request to endpoint with body.
+   */
   static Future<http.Response> post(
-      String url, Map<String, String> body) async {
-    http.Response res = await http.post(Uri.parse(url), body: body);
-    return res;
+      String url, Map<String, dynamic> body, BuildContext context) async {
+    try{
+      http.Response res = await http.post(Uri.parse(url), body: body);
+      print(res.body);
+      return res;
+    }
+    catch(e){
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false, // user must tap button!
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('No Connection'),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: <Widget>[
+                  Text('Failed to connect to the remote server!'),
+                  Text(
+                      'Please Double Check what your remote URL is set to in settings!'),
+                  Text('URL_TRIED: ' + url),
+                  Text('ERROR: ' + e.toString()),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                  child: const Text('OK'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  }),
+            ],
+          );
+        },
+      );
+      throw Exception('Failed to connect to the remote server!\n$e');
+    }
   }
   // Specialized HTTP
 }
@@ -122,6 +158,10 @@ class RTC {
 
   static Future<void> close(ws.WebSocketChannel channel) async {
     channel.sink.close();
+  }
+
+  static bool isReady() {
+    return channel != null;
   }
 }
 

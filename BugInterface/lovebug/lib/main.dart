@@ -52,11 +52,11 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance!.addPostFrameCallback((_) async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if(prefs.containsKey('theme')) {
-        theming.currentThemeName = prefs.getString('theme')!;
-        theming.currentTheme = theming.themeMapping[theming.currentThemeName]!;
-      }
-      else {
-        prefs.setString('theme', theming.currentThemeName);
+        Provider.of<ThemeProvider>(context, listen: false).changeTheme(theming.themeMapping[prefs.get("theme")]!);
+        setState(() {
+          theming.currentTheme = theming.themeMapping[prefs.get("theme")]!;
+          theming.currentThemeName = prefs.getString("theme")!;
+        });
       }
       DesktopWindow.setMinWindowSize(const Size(600, 600));
       DesktopWindow.setMaxWindowSize(const Size(600, 600));

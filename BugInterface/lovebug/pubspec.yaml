@@ -42,6 +42,7 @@ dependencies:
   provider: ^6.0.5
   desktop_window: ^0.4.0
   motion_toast: ^2.7.9
+  file_picker: ^5.5.0
 
 dev_dependencies:
   flutter_test:
