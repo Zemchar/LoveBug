@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart' as ws;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lovebug/main.dart' as main;
+import 'package:motion_toast/motion_toast.dart';
 
 class HTTP {
   // General HTTP
@@ -16,6 +18,7 @@ class HTTP {
       try {
         endpoint = prefs.getString('RemoteURL')! + endpoint;
         res = await http.get(Uri.parse(endpoint));
+        MotionToast.success(description: Text(res.body), title: Text('Success')).show(context);
         return res;
       } catch (e) {
         showDialog<void>(
@@ -31,6 +34,7 @@ class HTTP {
                     Text(
                         'Please Double Check what your remote URL is set to in settings!'),
                     Text('URL_TRIED: ' + endpoint),
+                    Text('ERROR: ' + e.toString()),
                   ],
                 ),
               ),
@@ -59,7 +63,49 @@ class HTTP {
   }
   // Specialized HTTP
 }
+class Steam implements HTTP {
+  static Image getGameImage(int steamID) {
+    return Image.network('https://steamcdn-a.akamaihd.net/steam/apps/$steamID/header.jpg');
+  }
 
+  static Future<List<dynamic>> getGameInfo(String key, String steamID, BuildContext context) async {
+    try{
+      var res = await http.get(Uri.parse("https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=$key&steamid=$steamID&include_appinfo=1&format=json&include_played_free_games=1"));
+      var json = jsonDecode(res.body)['response']['games'];
+      if(res.statusCode != 200 || res.body[0].isEmpty || json == null) {
+        throw Exception("Steam did not respond!");
+      }
+      return json;
+    }catch(e){
+      throw Exception("Failed to get game info!\n$e");
+    }
+  }
+
+  static List<dynamic> intersection (List<dynamic> a, List<dynamic>b) {
+    var c = [];
+    // I HATE THIS
+    if(a.length > b.length){
+      for(var game in a) {
+        for(var game2 in b) {
+          if(game['appid'] == game2['appid']) {
+            c.add(game);
+          }
+        }
+      }
+    }else{
+      for(var game in b) {
+        for(var game2 in a) {
+          if(game['appid'] == game2['appid']) {
+            c.add(game);
+          }
+        }
+      }
+    }
+    return c;
+  }
+
+
+}
 class RTC {
   static ws.WebSocketChannel? channel;
   static Future<ws.WebSocketChannel> connect(String url) async {
@@ -94,5 +140,8 @@ class Loading implements HTTP {
         );
       },
     );
+  }
+  static Future<void> hide(BuildContext context) async {
+    Navigator.of(context).pop();
   }
 }

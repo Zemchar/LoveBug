@@ -161,4 +161,6 @@ class Gallery extends StatelessWidget {
   }
 }
 
+
+
 // Settings Page
