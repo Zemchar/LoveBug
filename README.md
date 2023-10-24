@@ -1,3 +1,7 @@
+# NOTICE:
+This branch will soon be depricated. I am in the process of rebuilding the user side of this app in flutter to allow for cross-platform and mobile development.
+
+You can see the progress of development in the flutter-migration branch of this repo 
 # LoveBug
 A little app for long distance lovers
 
